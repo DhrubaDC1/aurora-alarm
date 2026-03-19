@@ -150,6 +150,12 @@ Packaging files live in:
 - `packaging/flatpak/io.codex.AuroraAlarm.yml`
 - `.github/workflows/release.yml`
 
+CI and release validation also check:
+
+- desktop metadata with `desktop-file-validate` and `appstreamcli`
+- the user service template with `systemd-analyze --user verify`
+- dependency advisories, licenses, bans, and sources with `cargo deny check advisories licenses bans sources`
+
 ### Build a portable release archive locally
 
 ```bash
@@ -176,6 +182,10 @@ cargo build --release
 ```
 
 ## Workspace
+
+These workspace crates are internal to this repository and are not published to
+crates.io. End-user distribution happens through the release artifacts instead
+of crate packages.
 
 - `alarm-core`: domain types, recurrence logic, and SQLite persistence
 - `alarm-daemon`: D-Bus service, scheduler loop, notifications, and tray state

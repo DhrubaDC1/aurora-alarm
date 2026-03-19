@@ -1,0 +1,21 @@
+<svg width="840" height="620" viewBox="0 0 840 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="840" height="620" fill="#050A12"/>
+  <rect x="104" y="58" width="632" height="66" rx="20" fill="#08111E" stroke="#284764"/>
+  <circle cx="164" cy="91" r="18" fill="#3C89D3"/>
+  <path d="M164 82V92L171 98" stroke="#F8FBFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="214" y="100" fill="#EAF4FF" font-family="DejaVu Sans, sans-serif" font-size="26">Top bar with active Aurora Alarm indicator</text>
+  <rect x="410" y="138" width="264" height="368" rx="28" fill="#0A1320" stroke="#33506E"/>
+  <text x="438" y="184" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="24" font-weight="700">Aurora Alarm</text>
+  <rect x="438" y="208" width="208" height="2" fill="#223B56"/>
+  <text x="438" y="248" fill="#9ED2FF" font-family="DejaVu Sans, sans-serif" font-size="22">Next alarm at Fri 15:30</text>
+  <text x="438" y="286" fill="#EAF4FF" font-family="DejaVu Sans, sans-serif" font-size="20">Gentle Wake · Mon 07:00</text>
+  <text x="438" y="320" fill="#EAF4FF" font-family="DejaVu Sans, sans-serif" font-size="20">Tea Break · Fri 15:30</text>
+  <rect x="438" y="348" width="208" height="2" fill="#223B56"/>
+  <rect x="438" y="378" width="208" height="42" rx="21" fill="#3C89D3"/>
+  <text x="492" y="405" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700">Dismiss Active</text>
+  <rect x="438" y="430" width="208" height="42" rx="21" fill="#22415B"/>
+  <text x="490" y="457" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700">Snooze 10 Minutes</text>
+  <rect x="438" y="482" width="208" height="42" rx="21" fill="#162B3E"/>
+  <text x="486" y="509" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="18" font-weight="700">Open Aurora Alarm</text>
+  <text x="110" y="566" fill="#A3B8D0" font-family="DejaVu Sans, sans-serif" font-size="22">Illustrative tray menu for repo documentation and release pages.</text>
+</svg>

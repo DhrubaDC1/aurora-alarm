@@ -1,0 +1,71 @@
+<svg width="1600" height="980" viewBox="0 0 1600 980" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="74" y1="52" x2="1360" y2="920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08111E"/>
+      <stop offset="0.48" stop-color="#102236"/>
+      <stop offset="1" stop-color="#17324B"/>
+    </linearGradient>
+    <linearGradient id="hero" x1="136" y1="154" x2="668" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#19385A"/>
+      <stop offset="1" stop-color="#0D1A29"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="980" fill="#03070D"/>
+  <rect x="72" y="54" width="1456" height="872" rx="38" fill="url(#bg)"/>
+  <rect x="72" y="54" width="1456" height="872" rx="38" stroke="#223E5D" stroke-width="2"/>
+  <circle cx="118" cy="92" r="10" fill="#E07676"/>
+  <circle cx="150" cy="92" r="10" fill="#E9C46A"/>
+  <circle cx="182" cy="92" r="10" fill="#71D98A"/>
+  <rect x="126" y="144" width="900" height="690" rx="32" fill="#0A1320" fill-opacity="0.32" stroke="#8FC9FF" stroke-opacity="0.12"/>
+  <rect x="1060" y="144" width="338" height="452" rx="32" fill="#0A1320" fill-opacity="0.38" stroke="#8FC9FF" stroke-opacity="0.12"/>
+  <rect x="136" y="158" width="878" height="230" rx="28" fill="url(#hero)"/>
+  <text x="176" y="210" fill="#9BC7F9" font-family="DejaVu Sans, sans-serif" font-size="28" letter-spacing="5">AURORA ALARM</text>
+  <text x="176" y="312" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-weight="700" font-size="112">06:45:12</text>
+  <text x="178" y="364" fill="#E0EEFF" font-family="DejaVu Sans, sans-serif" font-size="34">Tea Break is scheduled next at Fri 15:30</text>
+  <rect x="176" y="404" width="454" height="48" rx="24" fill="#214F7C"/>
+  <text x="204" y="436" fill="#D9ECFF" font-family="DejaVu Sans, sans-serif" font-size="24">2 alarms loaded. Next alarm at Fri 15:30</text>
+  <text x="154" y="472" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="32" font-weight="700">Upcoming Alarms</text>
+  <g>
+    <rect x="154" y="516" width="844" height="128" rx="24" fill="#0B1725" stroke="#2F4D6C"/>
+    <text x="186" y="565" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700">Gentle Wake</text>
+    <rect x="826" y="534" width="132" height="46" rx="23" fill="#123459"/>
+    <text x="856" y="565" fill="#9ED2FF" font-family="DejaVu Sans, sans-serif" font-size="28" font-weight="700">07:00</text>
+    <text x="186" y="610" fill="#C8DBF0" font-family="DejaVu Sans, sans-serif" font-size="24">Weekdays • Mon 07:00</text>
+    <text x="186" y="640" fill="#7FA6C7" font-family="DejaVu Sans, sans-serif" font-size="22" letter-spacing="2">SCHEDULED</text>
+    <rect x="794" y="596" width="100" height="34" rx="17" fill="#285A84"/>
+    <text x="820" y="620" fill="#E7F3FF" font-family="DejaVu Sans, sans-serif" font-size="18">Disable</text>
+    <rect x="906" y="596" width="74" height="34" rx="17" fill="#24384C"/>
+    <text x="928" y="620" fill="#E7F3FF" font-family="DejaVu Sans, sans-serif" font-size="18">Delete</text>
+  </g>
+  <g>
+    <rect x="154" y="666" width="844" height="128" rx="24" fill="#0B1725" stroke="#2F4D6C"/>
+    <text x="186" y="715" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="30" font-weight="700">Tea Break</text>
+    <rect x="826" y="684" width="132" height="46" rx="23" fill="#123459"/>
+    <text x="856" y="715" fill="#9ED2FF" font-family="DejaVu Sans, sans-serif" font-size="28" font-weight="700">15:30</text>
+    <text x="186" y="760" fill="#C8DBF0" font-family="DejaVu Sans, sans-serif" font-size="24">Mon, Tue, Wed, Thu, Fri • Fri 15:30</text>
+    <text x="186" y="790" fill="#7FA6C7" font-family="DejaVu Sans, sans-serif" font-size="22" letter-spacing="2">IDLE</text>
+    <rect x="808" y="746" width="86" height="34" rx="17" fill="#285A84"/>
+    <text x="836" y="770" fill="#E7F3FF" font-family="DejaVu Sans, sans-serif" font-size="18">Enable</text>
+    <rect x="906" y="746" width="74" height="34" rx="17" fill="#24384C"/>
+    <text x="928" y="770" fill="#E7F3FF" font-family="DejaVu Sans, sans-serif" font-size="18">Delete</text>
+  </g>
+  <text x="1090" y="194" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="32" font-weight="700">Quick Add</text>
+  <rect x="1090" y="232" width="278" height="54" rx="18" fill="#091321" stroke="#35506D"/>
+  <text x="1114" y="267" fill="#92AAC5" font-family="DejaVu Sans, sans-serif" font-size="24">Aurora Wake</text>
+  <rect x="1090" y="308" width="96" height="56" rx="18" fill="#091321" stroke="#35506D"/>
+  <rect x="1206" y="308" width="96" height="56" rx="18" fill="#091321" stroke="#35506D"/>
+  <text x="1124" y="344" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="28">06</text>
+  <text x="1240" y="344" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="28">50</text>
+  <text x="1194" y="344" fill="#B3CAE3" font-family="DejaVu Sans, sans-serif" font-size="28">:</text>
+  <rect x="1090" y="388" width="278" height="56" rx="18" fill="#091321" stroke="#35506D"/>
+  <text x="1114" y="424" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="26">Weekdays</text>
+  <rect x="1090" y="470" width="278" height="58" rx="29" fill="#3C89D3"/>
+  <text x="1176" y="508" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="28" font-weight="700">Add Alarm</text>
+  <rect x="1090" y="618" width="438" height="180" rx="32" fill="#0A1320" fill-opacity="0.32" stroke="#8FC9FF" stroke-opacity="0.12"/>
+  <text x="1120" y="668" fill="#F6FBFF" font-family="DejaVu Sans, sans-serif" font-size="28" font-weight="700">Tray Preview</text>
+  <rect x="1120" y="694" width="360" height="76" rx="20" fill="#0B1725" stroke="#2F4D6C"/>
+  <text x="1150" y="727" fill="#9ED2FF" font-family="DejaVu Sans, sans-serif" font-size="22">Next alarm at Fri 15:30</text>
+  <text x="1150" y="758" fill="#E7F3FF" font-family="DejaVu Sans, sans-serif" font-size="20">Gentle Wake · Mon 07:00</text>
+  <circle cx="1460" cy="728" r="18" fill="#3C89D3"/>
+  <path d="M1460 718V729L1468 735" stroke="#F6FBFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

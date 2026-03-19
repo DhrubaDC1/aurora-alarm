@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.codex.AuroraAlarm</id>
+  <name>Aurora Alarm</name>
+  <summary>Native Linux alarm clock with persistent tray controls</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.codex">
+    <name>Dhruba Chakraborty</name>
+  </developer>
+  <launchable type="desktop-id">io.codex.AuroraAlarm.desktop</launchable>
+  <description>
+    <p>
+      Aurora Alarm is a GTK4 and libadwaita alarm clock for Linux desktops with a
+      background daemon, a tray-first workflow, recurring alarms, and local persistence.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/DhrubaDC1/aurora-alarm</url>
+  <url type="bugtracker">https://github.com/DhrubaDC1/aurora-alarm/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/DhrubaDC1/aurora-alarm/main/assets/screenshots/aurora-alarm-window.png</image>
+      <caption>Main Aurora Alarm window</caption>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-03-19"/>
+  </releases>
+  <categories>
+    <category>Utility</category>
+  </categories>
+</component>

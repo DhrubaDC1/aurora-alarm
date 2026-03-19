@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Aurora Alarm
+Comment=Beautiful Linux alarm clock with tray-first controls
+Exec=alarm-app
+Icon=io.codex.AuroraAlarm
+Categories=Utility;Clock;GTK;
+StartupNotify=true
+Terminal=false
+Keywords=alarm;clock;timer;tray;reminder;

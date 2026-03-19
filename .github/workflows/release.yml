@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            file \
+            flatpak \
+            flatpak-builder \
+            libgtk-4-dev \
+            libadwaita-1-dev \
+            libasound2-dev \
+            pkg-config \
+            zsync
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Test workspace
+        run: cargo test --locked
+
+      - name: Build release binaries
+        run: cargo build --release --locked
+
+      - name: Build portable tarball
+        run: ./scripts/package-release.sh
+
+      - name: Build AppImage
+        run: ./packaging/appimage/build-appimage.sh
+
+      - name: Build Flatpak bundle
+        run: ./packaging/flatpak/build-flatpak.sh
+
+      - name: Publish GitHub release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/*

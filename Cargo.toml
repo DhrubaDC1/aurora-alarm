@@ -7,6 +7,8 @@ edition = "2024"
 version = "0.1.0"
 license = "MIT"
 authors = ["OpenAI Codex"]
+repository = "https://github.com/DhrubaDC1/aurora-alarm"
+homepage = "https://github.com/DhrubaDC1/aurora-alarm"
 
 [workspace.dependencies]
 anyhow = "1.0"

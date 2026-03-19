@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="$HERE/usr/bin:$PATH"
+export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+exec "$HERE/usr/bin/alarm-app" "$@"

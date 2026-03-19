@@ -5,7 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 APPDIR="$ROOT/packaging/appimage/AppDir"
 RELEASE_DIR="$ROOT/release"
 CACHE_DIR="$ROOT/.cache/appimage"
-VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.0}}"
+RAW_VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.1}}"
+VERSION="${RAW_VERSION#v}"
 
 mkdir -p "$APPDIR/usr/bin" \
   "$APPDIR/usr/share/applications" \

@@ -34,13 +34,19 @@ struct AlarmService {
 
 #[interface(name = "io.codex.AuroraAlarm")]
 impl AlarmService {
-    fn get_snapshot_json(&self) -> zbus::fdo::Result<String> {
-        self.with_storage(|storage| {
-            let status = self.current_status(storage)?;
-            let snapshot = storage.snapshot(status, Local::now())?;
-            Ok(serde_json::to_string(&snapshot)?)
-        })
-        .map_err(to_dbus_error)
+    async fn get_snapshot_json(&self) -> zbus::fdo::Result<String> {
+        let alarms = self.with_storage(|storage| storage.load_alarms()).map_err(to_dbus_error)?;
+        let settings = self
+            .with_storage(|storage| storage.load_settings())
+            .map_err(to_dbus_error)?;
+        let status = self.current_status(&alarms).await.map_err(to_dbus_error)?;
+        let snapshot = AppSnapshot {
+            generated_at: Local::now(),
+            alarms,
+            status,
+            settings,
+        };
+        serde_json::to_string(&snapshot).map_err(to_dbus_error)
     }
 
     fn create_alarm_json(&self, draft_json: &str) -> zbus::fdo::Result<String> {
@@ -196,9 +202,8 @@ impl AlarmService {
         f(&storage)
     }
 
-    fn current_status(&self, storage: &Storage) -> Result<DaemonStatus> {
-        let alarms = storage.load_alarms()?;
-        let runtime = self.runtime.blocking_lock();
+    async fn current_status(&self, alarms: &[Alarm]) -> Result<DaemonStatus> {
+        let runtime = self.runtime.lock().await;
         let next_alarm_at = alarms
             .iter()
             .filter(|alarm| alarm.enabled)

@@ -19,6 +19,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            appstream \
+            desktop-file-utils \
             file \
             flatpak \
             flatpak-builder \
@@ -26,6 +28,7 @@ jobs:
             libadwaita-1-dev \
             libasound2-dev \
             pkg-config \
+            systemd \
             zsync
 
       - name: Install Flatpak runtime
@@ -35,12 +38,34 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Lint workspace
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
       - name: Test workspace
         run: cargo test --locked
+
+      - name: Validate desktop metadata
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          install -m755 /bin/true "$HOME/.local/bin/alarm-daemon"
+          desktop-file-validate dist/linux/io.codex.AuroraAlarm.desktop
+          appstreamcli validate dist/linux/io.codex.AuroraAlarm.metainfo.xml
+          systemd-analyze --user verify dist/systemd/aurora-alarm-daemon.service
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Check dependencies and licenses
+        run: cargo deny check advisories licenses bans sources
 
       - name: Build release binaries
         run: cargo build --release --locked

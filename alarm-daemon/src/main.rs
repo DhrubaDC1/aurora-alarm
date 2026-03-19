@@ -1,4 +1,3 @@
-use std::future::pending;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -17,13 +16,20 @@ use rodio::{
 };
 use tokio::sync::Mutex;
 use tokio::time::{MissedTickBehavior, interval};
+use tracing::{error, info, warn};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::EnvFilter;
 use zbus::{connection, interface};
+
+#[cfg(unix)]
+use tokio::signal::unix::{SignalKind, signal};
 
 #[derive(Default)]
 struct RuntimeState {
     active_alarm: Option<ActiveAlarm>,
     tone_stop: Option<Arc<AtomicBool>>,
     notifications_available: bool,
+    audio_available: bool,
 }
 
 #[derive(Clone)]
@@ -35,9 +41,11 @@ struct AlarmService {
 #[interface(name = "io.codex.AuroraAlarm")]
 impl AlarmService {
     async fn get_snapshot_json(&self) -> zbus::fdo::Result<String> {
-        let alarms = self.with_storage(|storage| storage.load_alarms()).map_err(to_dbus_error)?;
+        let alarms = self
+            .with_storage(Storage::load_alarms)
+            .map_err(to_dbus_error)?;
         let settings = self
-            .with_storage(|storage| storage.load_settings())
+            .with_storage(Storage::load_settings)
             .map_err(to_dbus_error)?;
         let status = self.current_status(&alarms).await.map_err(to_dbus_error)?;
         let snapshot = AppSnapshot {
@@ -52,13 +60,9 @@ impl AlarmService {
     fn create_alarm_json(&self, draft_json: &str) -> zbus::fdo::Result<String> {
         let draft = serde_json::from_str::<AlarmDraft>(draft_json).map_err(to_dbus_error)?;
         self.with_storage(|storage| {
-            let mut alarm = draft.into_alarm(Local::now());
-            alarm.next_trigger_at = next_occurrence_after(&alarm, Local::now());
-            alarm.state = if alarm.next_trigger_at.is_some() {
-                AlarmState::Scheduled
-            } else {
-                AlarmState::Idle
-            };
+            let now = Local::now();
+            let mut alarm = draft.into_alarm(now)?;
+            recompute_alarm_schedule(&mut alarm, now);
             storage.save_alarm(&alarm)?;
             Ok(serde_json::to_string(&alarm)?)
         })
@@ -68,18 +72,26 @@ impl AlarmService {
     fn update_alarm_json(&self, id: &str, alarm_json: &str) -> zbus::fdo::Result<String> {
         let alarm_id = parse_alarm_id(id).map_err(to_dbus_error)?;
         let mut updated = serde_json::from_str::<Alarm>(alarm_json).map_err(to_dbus_error)?;
-        updated.id = alarm_id;
-        updated.updated_at = Local::now();
-        updated.next_trigger_at = next_occurrence_after(&updated, Local::now());
-        updated.state = if updated.state == AlarmState::Ringing {
-            AlarmState::Ringing
-        } else if updated.next_trigger_at.is_some() && updated.enabled {
-            AlarmState::Scheduled
-        } else {
-            AlarmState::Idle
-        };
-
         self.with_storage(|storage| {
+            let existing = load_alarm_by_id(storage, alarm_id)?;
+            let now = Local::now();
+
+            updated.id = alarm_id;
+            updated.created_at = existing.created_at;
+            updated.updated_at = now;
+            updated.last_triggered_at = existing.last_triggered_at;
+            updated = updated.normalized()?;
+
+            if existing.state == AlarmState::Ringing {
+                updated.state = AlarmState::Ringing;
+                updated.next_trigger_at = existing.next_trigger_at;
+            } else if existing.state == AlarmState::Snoozed && updated.enabled {
+                updated.state = AlarmState::Snoozed;
+                updated.next_trigger_at = existing.next_trigger_at;
+            } else {
+                recompute_alarm_schedule(&mut updated, now);
+            }
+
             storage.save_alarm(&updated)?;
             Ok(serde_json::to_string(&updated)?)
         })
@@ -96,18 +108,10 @@ impl AlarmService {
         let alarm_id = parse_alarm_id(id).map_err(to_dbus_error)?;
         let runtime = self.runtime.clone();
         self.with_storage(|storage| {
-            let mut alarm = storage
-                .load_alarms()?
-                .into_iter()
-                .find(|alarm| alarm.id == alarm_id)
-                .context("alarm not found")?;
+            let mut alarm = load_alarm_by_id(storage, alarm_id)?;
             alarm.enabled = enabled;
             alarm.updated_at = Local::now();
-            alarm.state = AlarmState::Idle;
-            alarm.next_trigger_at = next_occurrence_after(&alarm, Local::now());
-            if alarm.next_trigger_at.is_some() && alarm.enabled {
-                alarm.state = AlarmState::Scheduled;
-            }
+            recompute_alarm_schedule(&mut alarm, Local::now());
             storage.save_alarm(&alarm)?;
             Ok(alarm)
         })
@@ -144,10 +148,7 @@ impl AlarmService {
             {
                 alarm.last_triggered_at = Some(Local::now());
                 alarm.state = AlarmState::Idle;
-                alarm.next_trigger_at = next_occurrence_after(&alarm, Local::now());
-                if alarm.next_trigger_at.is_some() && alarm.enabled {
-                    alarm.state = AlarmState::Scheduled;
-                }
+                recompute_alarm_schedule(&mut alarm, Local::now());
                 storage.save_alarm(&alarm)?;
             }
             Ok(())
@@ -204,33 +205,19 @@ impl AlarmService {
 
     async fn current_status(&self, alarms: &[Alarm]) -> Result<DaemonStatus> {
         let runtime = self.runtime.lock().await;
-        let next_alarm_at = alarms
-            .iter()
-            .filter(|alarm| alarm.enabled)
-            .filter_map(|alarm| alarm.next_trigger_at)
-            .min();
-        let status = match runtime.active_alarm.as_ref().map(|active| active.state) {
-            Some(AlarmState::Ringing) => AlarmStatus::Ringing,
-            Some(AlarmState::Snoozed) => AlarmStatus::Snoozed,
-            _ if next_alarm_at.is_some() => AlarmStatus::Upcoming,
-            _ => AlarmStatus::Quiet,
-        };
-
-        Ok(DaemonStatus {
-            status,
-            next_alarm_at,
-            active_alarm: runtime.active_alarm.clone(),
-            tray_available: false,
-            notifications_available: runtime.notifications_available,
-        })
+        Ok(build_status(alarms, &runtime))
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let paths = AuroraPaths::discover()?;
+    let _log_guard = init_logging(&paths)?;
+    info!(db_path = %paths.db_path.display(), "starting aurora-alarm daemon");
+
     let runtime = Arc::new(Mutex::new(RuntimeState {
         notifications_available: true,
+        audio_available: true,
         ..RuntimeState::default()
     }));
     let service = AlarmService {
@@ -238,7 +225,7 @@ async fn main() -> Result<()> {
         runtime: runtime.clone(),
     };
 
-    tokio::spawn(run_scheduler(paths, runtime));
+    tokio::spawn(run_scheduler(paths.clone(), runtime.clone()));
 
     let _conn = connection::Builder::session()?
         .name(DBUS_SERVICE)?
@@ -246,9 +233,36 @@ async fn main() -> Result<()> {
         .build()
         .await?;
 
-    install_user_service_file().ok();
-    pending::<()>().await;
+    info!("daemon registered on the session bus");
+    wait_for_shutdown().await;
+
+    let mut runtime = runtime.lock().await;
+    stop_audio(&mut runtime);
+    info!("daemon shutdown complete");
     Ok(())
+}
+
+async fn wait_for_shutdown() {
+    #[cfg(unix)]
+    {
+        match signal(SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = terminate.recv() => {}
+                }
+            }
+            Err(error) => {
+                warn!(?error, "failed to register SIGTERM handler");
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        pending::<()>().await;
+    }
 }
 
 async fn run_scheduler(paths: AuroraPaths, runtime: Arc<Mutex<RuntimeState>>) {
@@ -258,7 +272,7 @@ async fn run_scheduler(paths: AuroraPaths, runtime: Arc<Mutex<RuntimeState>>) {
     loop {
         ticker.tick().await;
         if let Err(error) = scheduler_tick(&paths, &runtime).await {
-            eprintln!("scheduler tick failed: {error}");
+            error!(?error, "scheduler tick failed");
         }
     }
 }
@@ -268,14 +282,13 @@ async fn scheduler_tick(paths: &AuroraPaths, runtime: &Arc<Mutex<RuntimeState>>)
     let settings = storage.load_settings()?;
     let now = Local::now();
     let alarms = storage.load_alarms()?;
-    let mut changed = Vec::new();
     let mut fired_alarm: Option<Alarm> = None;
 
     for mut alarm in alarms {
-        let original = serde_json::to_string(&alarm)?;
+        let original = alarm.clone();
         let was_ringing = alarm.state == AlarmState::Ringing;
 
-        refresh_alarm_schedule(&mut alarm, now);
+        recompute_alarm_schedule(&mut alarm, now);
 
         if alarm.enabled
             && alarm.next_trigger_at.is_some_and(|next| {
@@ -298,15 +311,12 @@ async fn scheduler_tick(paths: &AuroraPaths, runtime: &Arc<Mutex<RuntimeState>>)
             && !was_ringing
         {
             alarm.state = AlarmState::Missed;
-            alarm.next_trigger_at = next_occurrence_after(&alarm, now);
-            if alarm.next_trigger_at.is_some() && alarm.enabled {
-                alarm.state = AlarmState::Scheduled;
-            }
+            alarm.last_triggered_at = Some(now);
+            recompute_alarm_schedule(&mut alarm, now);
         }
 
-        if serde_json::to_string(&alarm)? != original {
+        if alarms_differ(&original, &alarm)? {
             storage.save_alarm(&alarm)?;
-            changed.push(alarm);
         }
     }
 
@@ -323,51 +333,23 @@ async fn scheduler_tick(paths: &AuroraPaths, runtime: &Arc<Mutex<RuntimeState>>)
                 .as_ref()
                 .and_then(|active| active.snoozed_until)
                 .is_some_and(|until| until <= now)
+            && let Some(active) = runtime_guard.active_alarm.clone()
         {
-            if let Some(active) = runtime_guard.active_alarm.clone() {
-                drop(runtime_guard);
-                if let Ok(storage) = Storage::open(paths) {
-                    if let Ok(Some(alarm)) = storage
-                        .load_alarms()
-                        .map(|alarms| alarms.into_iter().find(|alarm| alarm.id == active.alarm_id))
-                    {
-                        trigger_alarm(runtime.clone(), alarm, now).await;
-                    }
-                }
+            drop(runtime_guard);
+            if let Ok(storage) = Storage::open(paths)
+                && let Ok(Some(alarm)) = storage
+                    .load_alarms()
+                    .map(|alarms| alarms.into_iter().find(|alarm| alarm.id == active.alarm_id))
+            {
+                trigger_alarm(runtime.clone(), alarm, now).await;
             }
         }
-    }
-
-    if !changed.is_empty() {
-        let storage = Storage::open(paths)?;
-        let status = {
-            let next_alarm_at = storage
-                .load_alarms()?
-                .iter()
-                .filter(|alarm| alarm.enabled)
-                .filter_map(|alarm| alarm.next_trigger_at)
-                .min();
-            let runtime = runtime.lock().await;
-            DaemonStatus {
-                status: match runtime.active_alarm.as_ref().map(|active| active.state) {
-                    Some(AlarmState::Ringing) => AlarmStatus::Ringing,
-                    Some(AlarmState::Snoozed) => AlarmStatus::Snoozed,
-                    _ if next_alarm_at.is_some() => AlarmStatus::Upcoming,
-                    _ => AlarmStatus::Quiet,
-                },
-                next_alarm_at,
-                active_alarm: runtime.active_alarm.clone(),
-                tray_available: false,
-                notifications_available: runtime.notifications_available,
-            }
-        };
-        let _snapshot: AppSnapshot = storage.snapshot(status, Local::now())?;
     }
 
     Ok(())
 }
 
-fn refresh_alarm_schedule(alarm: &mut Alarm, now: DateTime<Local>) {
+fn recompute_alarm_schedule(alarm: &mut Alarm, now: DateTime<Local>) {
     if !alarm.enabled {
         alarm.state = AlarmState::Idle;
         alarm.next_trigger_at = None;
@@ -392,18 +374,18 @@ fn refresh_alarm_schedule(alarm: &mut Alarm, now: DateTime<Local>) {
 
 async fn trigger_alarm(runtime: Arc<Mutex<RuntimeState>>, alarm: Alarm, now: DateTime<Local>) {
     {
-        let mut runtime = runtime.lock().await;
-        if runtime.active_alarm.as_ref().is_some_and(|active| {
+        let mut runtime_guard = runtime.lock().await;
+        if runtime_guard.active_alarm.as_ref().is_some_and(|active| {
             active.alarm_id == alarm.id && active.state == AlarmState::Ringing
         }) {
             return;
         }
 
-        stop_audio(&mut runtime);
+        stop_audio(&mut runtime_guard);
         let stop_flag = Arc::new(AtomicBool::new(false));
-        spawn_audio_loop(stop_flag.clone(), alarm.volume);
-        runtime.tone_stop = Some(stop_flag);
-        runtime.active_alarm = Some(ActiveAlarm {
+        spawn_audio_loop(runtime.clone(), stop_flag.clone(), alarm.volume);
+        runtime_guard.tone_stop = Some(stop_flag);
+        runtime_guard.active_alarm = Some(ActiveAlarm {
             alarm_id: alarm.id,
             label: alarm.label.clone(),
             state: AlarmState::Ringing,
@@ -413,22 +395,39 @@ async fn trigger_alarm(runtime: Arc<Mutex<RuntimeState>>, alarm: Alarm, now: Dat
     }
 
     let subtitle = describe_next_alarm(&alarm, now).unwrap_or_else(|| "Now".into());
-    let _ = Notification::new()
+    let notification_result = Notification::new()
         .summary(&format!("Aurora Alarm: {}", alarm.label))
         .body(&format!(
             "Alarm is ringing at {subtitle}. Dismiss or snooze from the app or tray."
         ))
         .show();
+
+    let mut runtime_guard = runtime.lock().await;
+    match notification_result {
+        Ok(_) => runtime_guard.notifications_available = true,
+        Err(error) => {
+            runtime_guard.notifications_available = false;
+            warn!(?error, "failed to show desktop notification");
+        }
+    }
 }
 
-fn spawn_audio_loop(stop_flag: Arc<AtomicBool>, volume: u8) {
+fn spawn_audio_loop(runtime: Arc<Mutex<RuntimeState>>, stop_flag: Arc<AtomicBool>, volume: u8) {
     thread::spawn(move || {
         let Ok(mut stream) = OutputStreamBuilder::open_default_stream() else {
+            let mut runtime_guard = runtime.blocking_lock();
+            runtime_guard.audio_available = false;
+            warn!("failed to open default audio output");
             return;
         };
         stream.log_on_drop(false);
         let sink = Sink::connect_new(stream.mixer());
         sink.set_volume((volume as f32 / 100.0).clamp(0.1, 1.0));
+
+        {
+            let mut runtime_guard = runtime.blocking_lock();
+            runtime_guard.audio_available = true;
+        }
 
         while !stop_flag.load(Ordering::Relaxed) {
             sink.append(
@@ -453,6 +452,40 @@ fn stop_audio(runtime: &mut RuntimeState) {
     }
 }
 
+fn build_status(alarms: &[Alarm], runtime: &RuntimeState) -> DaemonStatus {
+    let next_alarm_at = alarms
+        .iter()
+        .filter(|alarm| alarm.enabled)
+        .filter_map(|alarm| alarm.next_trigger_at)
+        .min();
+
+    DaemonStatus {
+        status: match runtime.active_alarm.as_ref().map(|active| active.state) {
+            Some(AlarmState::Ringing) => AlarmStatus::Ringing,
+            Some(AlarmState::Snoozed) => AlarmStatus::Snoozed,
+            _ if next_alarm_at.is_some() => AlarmStatus::Upcoming,
+            _ => AlarmStatus::Quiet,
+        },
+        next_alarm_at,
+        active_alarm: runtime.active_alarm.clone(),
+        tray_available: false,
+        notifications_available: runtime.notifications_available,
+        audio_available: runtime.audio_available,
+    }
+}
+
+fn alarms_differ(original: &Alarm, updated: &Alarm) -> Result<bool> {
+    Ok(serde_json::to_string(original)? != serde_json::to_string(updated)?)
+}
+
+fn load_alarm_by_id(storage: &Storage, alarm_id: AlarmId) -> Result<Alarm> {
+    storage
+        .load_alarms()?
+        .into_iter()
+        .find(|alarm| alarm.id == alarm_id)
+        .context("alarm not found")
+}
+
 fn parse_alarm_id(id: &str) -> Result<AlarmId> {
     Ok(id.parse()?)
 }
@@ -461,16 +494,17 @@ fn to_dbus_error(error: impl Into<anyhow::Error>) -> zbus::fdo::Error {
     zbus::fdo::Error::Failed(error.into().to_string())
 }
 
-fn install_user_service_file() -> Result<()> {
-    let paths = AuroraPaths::discover()?;
-    let service_dir = paths.config_dir.join("systemd/user");
-    std::fs::create_dir_all(&service_dir)?;
-    let service_path = service_dir.join("aurora-alarm-daemon.service");
-    let current_exe = std::env::current_exe().context("missing daemon executable path")?;
-    let service = format!(
-        "[Unit]\nDescription=Aurora Alarm Daemon\n\n[Service]\nExecStart={}\nRestart=on-failure\n\n[Install]\nWantedBy=default.target\n",
-        current_exe.display()
-    );
-    std::fs::write(service_path, service)?;
-    Ok(())
+fn init_logging(paths: &AuroraPaths) -> Result<WorkerGuard> {
+    let file_appender = tracing_appender::rolling::daily(&paths.log_dir, "aurora-alarm-daemon.log");
+    let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .with_writer(non_blocking)
+        .with_ansi(false)
+        .try_init()
+        .map_err(|error| anyhow::anyhow!("failed to initialize tracing subscriber: {error}"))?;
+
+    Ok(guard)
 }

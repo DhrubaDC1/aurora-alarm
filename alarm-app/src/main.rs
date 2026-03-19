@@ -79,9 +79,12 @@ struct Ui {
     hour_spin: gtk::SpinButton,
     minute_spin: gtk::SpinButton,
     repeat_combo: gtk::DropDown,
+    snooze_button: gtk::Button,
+    dismiss_button: gtk::Button,
     status_line: gtk::Label,
     sender: mpsc::Sender<UiMessage>,
     tray_sender: mpsc::Sender<TrayUpdate>,
+    snooze_minutes: Arc<Mutex<u16>>,
 }
 
 fn main() -> glib::ExitCode {
@@ -251,6 +254,7 @@ fn build_ui(app: &adw::Application) {
     let (tray_command_tx, tray_command_rx) = mpsc::channel::<TrayCommand>();
     let (tray_sender, tray_receiver) = mpsc::channel::<TrayUpdate>();
     start_tray_thread(tray_command_tx, tray_receiver);
+    let snooze_minutes = Arc::new(Mutex::new(10));
 
     let ui = Ui {
         app: app.clone(),
@@ -263,9 +267,12 @@ fn build_ui(app: &adw::Application) {
         hour_spin,
         minute_spin,
         repeat_combo,
+        snooze_button: snooze_button.clone(),
+        dismiss_button: dismiss_button.clone(),
         status_line,
         sender,
         tray_sender,
+        snooze_minutes,
     };
 
     let receiver_ui = ui.clone();
@@ -434,11 +441,12 @@ fn dismiss_active(ui: &Ui) {
 fn snooze_active(ui: &Ui) {
     ui.status_line.set_label("Sending command to daemon...");
     let sender = ui.sender.clone();
+    let minutes = ui.snooze_minutes.lock().map(|value| *value).unwrap_or(10);
     thread::spawn(move || {
         let result = (|| -> Result<()> {
             let connection = daemon_connection()?;
             let proxy = AlarmDaemonProxyBlocking::new(&connection)?;
-            proxy.snooze_active(10)?;
+            proxy.snooze_active(minutes)?;
             Ok(())
         })();
         let _ = sender.send(UiMessage::Command(result.map_err(|err| err.to_string())));
@@ -450,6 +458,7 @@ fn render_snapshot(ui: &Ui, result: Result<AppSnapshot, String>) {
 
     match result {
         Ok(snapshot) => {
+            let degraded = degraded_capabilities(&snapshot);
             let next_copy = snapshot
                 .status
                 .next_alarm_at
@@ -463,10 +472,21 @@ fn render_snapshot(ui: &Ui, result: Result<AppSnapshot, String>) {
                 .unwrap_or_else(|| next_copy.clone());
 
             ui.hero_status.set_label(&active_copy);
-            ui.banner.set_label(&format!(
-                "{} alarms loaded. {}",
+            ui.banner.set_label(&build_banner_text(
                 snapshot.alarms.len(),
-                next_copy
+                &next_copy,
+                &degraded,
+            ));
+            ui.dismiss_button
+                .set_sensitive(snapshot.status.active_alarm.is_some());
+            ui.snooze_button
+                .set_sensitive(snapshot.status.active_alarm.is_some());
+            if let Ok(mut snooze_minutes) = ui.snooze_minutes.lock() {
+                *snooze_minutes = snapshot.settings.default_snooze_minutes;
+            }
+            ui.snooze_button.set_label(&format!(
+                "Snooze {}m",
+                snapshot.settings.default_snooze_minutes
             ));
 
             let mut alarms = snapshot.alarms;
@@ -482,7 +502,7 @@ fn render_snapshot(ui: &Ui, result: Result<AppSnapshot, String>) {
             if alarms.is_empty() {
                 ui.alarm_box.append(
                     &gtk::Label::builder()
-                        .label("No alarms yet. Use Quick Add to seed the morning.")
+                        .label("No alarms yet. Add your first alarm from the Quick Add panel.")
                         .halign(Align::Start)
                         .build(),
                 );
@@ -510,10 +530,12 @@ fn render_snapshot(ui: &Ui, result: Result<AppSnapshot, String>) {
             ui.hero_status
                 .set_label(&format!("Daemon unavailable: {error}"));
             ui.banner
-                .set_label("Trying to keep the window useful while the daemon is offline.");
+                .set_label("The app is running without its background daemon. Installed service mode is recommended for reliability.");
+            ui.dismiss_button.set_sensitive(false);
+            ui.snooze_button.set_sensitive(false);
             ui.alarm_box.append(
                 &gtk::Label::builder()
-                    .label("The background daemon is not reachable. Start `cargo run -p alarm-daemon` or use an installed service.")
+                    .label("The background daemon is not reachable. Start `cargo run -p alarm-daemon` for development, or enable the installed `aurora-alarm-daemon.service` for normal use.")
                     .wrap(true)
                     .halign(Align::Start)
                     .build(),
@@ -526,6 +548,28 @@ fn render_snapshot(ui: &Ui, result: Result<AppSnapshot, String>) {
             }));
         }
     }
+}
+
+fn build_banner_text(alarm_count: usize, next_copy: &str, degraded: &[String]) -> String {
+    if degraded.is_empty() {
+        format!("{alarm_count} alarms loaded. {next_copy}")
+    } else {
+        format!(
+            "{alarm_count} alarms loaded. {next_copy} Degraded: {}.",
+            degraded.join(", ")
+        )
+    }
+}
+
+fn degraded_capabilities(snapshot: &AppSnapshot) -> Vec<String> {
+    let mut degraded = Vec::new();
+    if !snapshot.status.notifications_available {
+        degraded.push("desktop notifications unavailable".into());
+    }
+    if !snapshot.status.audio_available {
+        degraded.push("audio output unavailable".into());
+    }
+    degraded
 }
 
 fn alarm_card(ui: &Ui, alarm: Alarm, _has_active_alarm: bool) -> gtk::Widget {

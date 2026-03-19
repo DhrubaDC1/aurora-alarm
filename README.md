@@ -185,13 +185,18 @@ cargo build --release
 
 - config and service files: XDG config directory, typically `~/.config`
 - alarm database: XDG data directory, typically `~/.local/share`
+- daemon logs: XDG state directory, typically `~/.local/state/Aurora Alarm/logs`
 
 ## Notes
 
 - The daemon stores state under the user's XDG data/config directories.
+- First run starts with an empty alarm list plus default settings; demo alarms are no longer seeded.
 - Tray support uses StatusNotifier/AppIndicator-compatible hosts when available.
 - If no tray host exists, the app still works through the window and notifications.
 - The current build uses a generated tone rather than bundled audio assets.
+- The daemon no longer writes a user service file at runtime; install the packaged
+  [`dist/systemd/aurora-alarm-daemon.service`](dist/systemd/aurora-alarm-daemon.service)
+  when enabling autostart.
 - The preview images in this README are polished repo illustrations of the current UI direction.
 
 ## License

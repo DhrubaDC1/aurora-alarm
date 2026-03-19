@@ -3,10 +3,11 @@ Description=Aurora Alarm Daemon
 After=graphical-session.target
 
 [Service]
-Type=simple
+Type=dbus
+BusName=io.codex.AuroraAlarm
 ExecStart=%h/.local/bin/alarm-daemon
 Restart=on-failure
-RestartSec=2
+RestartSec=5
 
 [Install]
 WantedBy=default.target

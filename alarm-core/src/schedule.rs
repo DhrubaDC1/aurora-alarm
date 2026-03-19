@@ -1,4 +1,6 @@
-use chrono::{DateTime, Datelike, Days, Local, LocalResult, NaiveDate, NaiveDateTime, TimeZone};
+use chrono::{
+    DateTime, Datelike, Days, Duration, Local, LocalResult, NaiveDate, NaiveDateTime, TimeZone,
+};
 
 use crate::{Alarm, AlarmState, RepeatRule};
 
@@ -11,10 +13,11 @@ pub fn next_occurrence_after(alarm: &Alarm, now: DateTime<Local>) -> Option<Date
         return alarm.next_trigger_at;
     }
 
-    if let Some(snoozed_until) = alarm.next_trigger_at {
-        if alarm.state == AlarmState::Snoozed && snoozed_until > now {
-            return Some(snoozed_until);
-        }
+    if let Some(snoozed_until) = alarm.next_trigger_at
+        && alarm.state == AlarmState::Snoozed
+        && snoozed_until > now
+    {
+        return Some(snoozed_until);
     }
 
     match &alarm.repeat_rule {
@@ -37,10 +40,10 @@ fn next_matching_weekday(
 ) -> Option<DateTime<Local>> {
     for offset in 0..14 {
         let date = now.date_naive().checked_add_days(Days::new(offset))?;
-        if weekday_ids.contains(&date.weekday().num_days_from_monday()) {
-            if let Some(candidate) = first_match(alarm, date, now) {
-                return Some(candidate);
-            }
+        if weekday_ids.contains(&date.weekday().num_days_from_monday())
+            && let Some(candidate) = first_match(alarm, date, now)
+        {
+            return Some(candidate);
         }
     }
 
@@ -49,16 +52,35 @@ fn next_matching_weekday(
 
 fn first_match(alarm: &Alarm, date: NaiveDate, now: DateTime<Local>) -> Option<DateTime<Local>> {
     let naive = NaiveDateTime::new(date, alarm.time_local);
-    let candidate = match Local.from_local_datetime(&naive) {
-        LocalResult::Single(dt) => dt,
-        LocalResult::Ambiguous(first, second) => first.min(second),
-        LocalResult::None => return None,
-    };
+    let candidate = resolve_local_candidate(naive)?;
 
     if candidate > now {
         Some(candidate)
     } else {
         None
+    }
+}
+
+fn resolve_local_candidate(naive: NaiveDateTime) -> Option<DateTime<Local>> {
+    match Local.from_local_datetime(&naive) {
+        LocalResult::Single(dt) => Some(dt),
+        LocalResult::Ambiguous(first, second) => Some(first.min(second)),
+        LocalResult::None => {
+            for minute_offset in 1..=180 {
+                let shifted = naive.checked_add_signed(Duration::minutes(minute_offset))?;
+                if shifted.date() != naive.date() {
+                    break;
+                }
+
+                match Local.from_local_datetime(&shifted) {
+                    LocalResult::Single(dt) => return Some(dt),
+                    LocalResult::Ambiguous(first, second) => return Some(first.min(second)),
+                    LocalResult::None => continue,
+                }
+            }
+
+            None
+        }
     }
 }
 
@@ -71,7 +93,7 @@ pub fn describe_next_alarm(alarm: &Alarm, now: DateTime<Local>) -> Option<String
 mod tests {
     use chrono::{Datelike, Local, NaiveTime, TimeZone, Timelike, Weekday};
 
-    use crate::{AlarmDraft, RepeatRule};
+    use crate::{AlarmDraft, AlarmState, RepeatRule};
 
     use super::next_occurrence_after;
 
@@ -86,7 +108,8 @@ mod tests {
             time_local: NaiveTime::from_hms_opt(8, 5, 0).unwrap(),
             ..AlarmDraft::default()
         }
-        .into_alarm(now);
+        .into_alarm(now)
+        .expect("valid alarm");
 
         let next = next_occurrence_after(&alarm, now).expect("next alarm");
         assert_eq!(next.hour(), 8);
@@ -106,10 +129,45 @@ mod tests {
             time_local: NaiveTime::from_hms_opt(7, 30, 0).unwrap(),
             ..AlarmDraft::default()
         }
-        .into_alarm(now);
+        .into_alarm(now)
+        .expect("valid alarm");
 
         let next = next_occurrence_after(&alarm, now).expect("next alarm");
         assert_eq!(next.weekday(), Weekday::Mon);
         assert_eq!(next.hour(), 7);
+    }
+
+    #[test]
+    fn disabled_alarm_has_no_next_occurrence() {
+        let now = Local
+            .with_ymd_and_hms(2026, 3, 19, 8, 0, 0)
+            .single()
+            .expect("fixed test time");
+        let alarm = AlarmDraft {
+            enabled: false,
+            ..AlarmDraft::default()
+        }
+        .into_alarm(now)
+        .expect("valid alarm");
+
+        assert!(next_occurrence_after(&alarm, now).is_none());
+    }
+
+    #[test]
+    fn snoozed_alarm_keeps_future_snooze_until() {
+        let now = Local
+            .with_ymd_and_hms(2026, 3, 19, 8, 0, 0)
+            .single()
+            .expect("fixed test time");
+        let snoozed_until = Local
+            .with_ymd_and_hms(2026, 3, 19, 8, 12, 0)
+            .single()
+            .expect("fixed snooze time");
+        let mut alarm = AlarmDraft::default().into_alarm(now).expect("valid alarm");
+        alarm.state = AlarmState::Snoozed;
+        alarm.next_trigger_at = Some(snoozed_until);
+
+        let next = next_occurrence_after(&alarm, now).expect("next alarm");
+        assert_eq!(next, snoozed_until);
     }
 }

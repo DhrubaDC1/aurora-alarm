@@ -20,6 +20,10 @@ rodio = { version = "0.21", features = ["playback"] }
 rusqlite = { version = "0.37", features = ["bundled", "chrono"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+tempfile = "3.23"
 tokio = { version = "1.48", features = ["macros", "rt-multi-thread", "signal", "time", "sync"] }
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 uuid = { version = "1.18", features = ["v4", "serde"] }
 zbus = { version = "5.12", default-features = false, features = ["tokio"] }

@@ -1,0 +1,12 @@
+[Unit]
+Description=Aurora Alarm Daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/alarm-daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

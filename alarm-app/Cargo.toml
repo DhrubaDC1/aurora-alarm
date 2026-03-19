@@ -1,0 +1,16 @@
+[package]
+name = "alarm-app"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+alarm-core = { path = "../alarm-core" }
+adw = { version = "0.8", package = "libadwaita", features = ["v1_4"] }
+anyhow.workspace = true
+chrono.workspace = true
+gtk = { version = "0.10", package = "gtk4", features = ["v4_10"] }
+ksni.workspace = true
+serde_json.workspace = true
+zbus = { workspace = true, features = ["blocking-api"] }

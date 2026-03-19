@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RAW_VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.1}}"
+RAW_VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.2}}"
 VERSION="${RAW_VERSION#v}"
 STAGE_DIR="$ROOT/release/stage"
 ARCHIVE_ROOT="$STAGE_DIR/aurora-alarm-${VERSION}-linux-x86_64"

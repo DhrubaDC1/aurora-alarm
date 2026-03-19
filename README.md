@@ -45,8 +45,8 @@ Release artifacts are intended to include:
 #### Portable tarball
 
 ```bash
-tar -xzf aurora-alarm-0.1.1-linux-x86_64.tar.gz
-cd aurora-alarm-0.1.1-linux-x86_64
+tar -xzf aurora-alarm-0.1.2-linux-x86_64.tar.gz
+cd aurora-alarm-0.1.2-linux-x86_64
 mkdir -p ~/.local/bin ~/.local/share/applications ~/.local/share/metainfo ~/.local/share/icons/hicolor/scalable/apps ~/.config/systemd/user
 install -m755 bin/alarm-app ~/.local/bin/alarm-app
 install -m755 bin/alarm-daemon ~/.local/bin/alarm-daemon
@@ -67,14 +67,14 @@ Then run:
 #### AppImage
 
 ```bash
-chmod +x AuroraAlarm-0.1.1-x86_64.AppImage
-./AuroraAlarm-0.1.1-x86_64.AppImage
+chmod +x AuroraAlarm-0.1.2-x86_64.AppImage
+./AuroraAlarm-0.1.2-x86_64.AppImage
 ```
 
 #### Flatpak bundle
 
 ```bash
-flatpak install --user AuroraAlarm-0.1.1-x86_64.flatpak
+flatpak install --user AuroraAlarm-0.1.2-x86_64.flatpak
 flatpak run io.codex.AuroraAlarm
 ```
 

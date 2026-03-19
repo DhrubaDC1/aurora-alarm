@@ -6,7 +6,7 @@ BUILD_DIR="$ROOT/.flatpak-builder"
 REPO_DIR="$ROOT/.flatpak-repo"
 RELEASE_DIR="$ROOT/release"
 VENDOR_DIR="$ROOT/packaging/flatpak/vendor"
-RAW_VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.1}}"
+RAW_VERSION="${GITHUB_REF_NAME:-${VERSION:-0.1.2}}"
 VERSION="${RAW_VERSION#v}"
 
 mkdir -p "$RELEASE_DIR"
@@ -14,7 +14,9 @@ rm -rf "$VENDOR_DIR"
 cargo vendor --versioned-dirs "$VENDOR_DIR"
 
 flatpak-builder \
+  --user \
   --force-clean \
+  --install-deps-from=flathub \
   --repo="$REPO_DIR" \
   "$BUILD_DIR" \
   "$ROOT/packaging/flatpak/io.codex.AuroraAlarm.yml"

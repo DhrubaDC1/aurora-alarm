@@ -55,6 +55,8 @@ jobs:
 
       - name: Validate desktop metadata
         run: |
+          mkdir -p "$HOME/.local/bin"
+          install -m755 /bin/true "$HOME/.local/bin/alarm-daemon"
           desktop-file-validate dist/linux/io.codex.AuroraAlarm.desktop
           appstreamcli validate dist/linux/io.codex.AuroraAlarm.metainfo.xml
           systemd-analyze --user verify dist/systemd/aurora-alarm-daemon.service
